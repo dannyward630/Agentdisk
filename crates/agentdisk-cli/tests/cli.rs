@@ -144,6 +144,35 @@ fn version_and_help() {
 }
 
 #[test]
+fn command_help_is_available_without_running_commands() {
+    let h = tmp("command-help");
+    for command in [
+        "scan", "size", "explain", "advise", "check", "adapters", "plans", "plan", "apply",
+        "restore", "purge", "compact", "mcp", "config",
+    ] {
+        let (code, out, err) = run(&h, &[command, "--help"]);
+        assert_eq!(code, 0, "{command}: {out}{err}");
+        assert!(
+            out.starts_with(&format!("agentdisk {command}")),
+            "{command}: {out}"
+        );
+        assert!(err.is_empty(), "{command}: {err}");
+        if command == "advise" || command == "plan" {
+            for flag in ["--depth", "--threads", "--adapters", "--no-agents"] {
+                assert!(out.contains(flag), "{command} help misses {flag}: {out}");
+            }
+        }
+    }
+
+    let (code, out, err) = run(&h, &["mcp", "--bogus"]);
+    assert_eq!(code, 2, "{out}{err}");
+    assert!(out.is_empty(), "{out}");
+    assert!(err.contains("unknown option '--bogus'"), "{err}");
+    assert!(!h.join("agentdisk").exists(), "help must not write config");
+    fs::remove_dir_all(&h).unwrap();
+}
+
+#[test]
 fn config_reads_bom_prefixed_file() {
     let h = tmp("config-bom");
     let config_dir = h.join("agentdisk");
